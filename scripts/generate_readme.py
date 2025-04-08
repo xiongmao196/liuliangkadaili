@@ -11,55 +11,90 @@ OPERATOR_MAP = {
 }
 
 def generate_table(goods):
-    """生成带运营商分类的Markdown表格"""
+    """生成带运营商分类的Markdown表格，自动过滤空分类"""
     categories = {
-        "中国电信": "## 📡 中国电信套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-        "中国联通": "## 📶 中国联通套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-        "中国移动": "## 📱 中国移动套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-        "广电": "## 📺 广电套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|"
+        "中国电信": {
+            "header": "## 📡 中国电信套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
+            "rows": []
+        },
+        "中国联通": {
+            "header": "## 📶 中国联通套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
+            "rows": []
+        },
+        "中国移动": {
+            "header": "## 📱 中国移动套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
+            "rows": []
+        },
+        "广电": {
+            "header": "## 📺 广电套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
+            "rows": []
+        }
     }
 
     for item in goods:
-        # 过滤无效数据（月租或流量为0）
+        # 过滤无效数据
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
-        # 修复标题乱码
-        title = item['title'].encode('utf-8').decode('unicode_escape').replace("\\", "")
-        operator = OPERATOR_MAP.get(item['operator'], "其他")
+        # 清洗标题（根据实际数据情况调整）
+        title = item['title'].strip().replace('\u200b', '')  # 示例：移除零宽空格
         
+        # 获取运营商分类
+        operator = OPERATOR_MAP.get(item['operator'], "其他")
+        if operator not in categories:
+            continue
+
         # 生成办理链接
         link = f"https://www.91haoka.cn/webapp/weixiaodian/index.html?shop_id=563381&fetch_code={quote(item['fetch_code'])}"
         
-        # 区域限制解析（增强容错）
+        # 区域限制解析（增强健壮性）
         region = "全国"
+        selling_points = []
         try:
-            selling_point = item['selling_point'].replace('""', '"').strip('"')
-            if selling_point.startswith('["') and not selling_point.endswith('"]'):
-                selling_point += '"]'
-            selling_points = json.loads(selling_point)
-        except json.JSONDecodeError:
+            # 尝试两种解析方式
             try:
-                selling_points = ast.literal_eval(item['selling_point']) if item['selling_point'] else []
-            except:
-                selling_points = []
+                selling_points = json.loads(item['selling_point'].replace('""', '"'))
+            except json.JSONDecodeError:
+                selling_points = ast.literal_eval(item['selling_point'])
+        except:
+            pass
         
-        for point in selling_points:
-            if "仅发" in point:
-                region = point.split("仅发")[-1].replace("）", "").strip()
-                break
+        # 使用正则表达式作为最后兜底方案
+        import re
+        region_match = re.search(r'仅发([\u4e00-\u9fa5]+)', item['selling_point'])
+        if region_match:
+            region = region_match.group(1)
+        else:
+            for point in selling_points:
+                if "仅发" in point:
+                    region = point.split("仅发")[-1].replace("）", "").strip()
+                    break
 
-        # 通话时长处理
-        call_time = "0.1元/分钟" if item.get('yuyin', 0) == 0 else f"{item['yuyin']}分钟"
+        # 通话时长处理（增强类型容错）
+        try:
+            yuyin = int(item.get('yuyin', 0))
+        except (ValueError, TypeError):
+            yuyin = 0
+        call_time = "0.1元/分钟" if yuyin == 0 else f"{yuyin}分钟"
         
+        # 定向流量显示优化
+        dx_liuliang = item.get('dx_liuliang', 0)
+        dx_display = f"{dx_liuliang}G" if dx_liuliang > 0 else "无"
+
         # 构建表格行
-        row = f"| {title} | {item['yuezu']}元 | {item['liuliang']}G | {item['dx_liuliang']}G | " \
+        row = f"| {title} | {item['yuezu']}元 | {item['liuliang']}G | {dx_display} | " \
               f"{call_time} | {region} | [立即办理]({link}) |"
         
-        if operator in categories:
-            categories[operator] += "\n" + row
-            
-    return "\n\n".join(categories.values())
+        categories[operator]['rows'].append(row)
+
+    # 构建最终输出，过滤空分类
+    output = []
+    for category in ['中国移动', '中国电信', '中国联通', '广电']:  # 固定排序
+        data = categories[category]
+        if data['rows']:
+            output.append("\n".join([data['header']] + data['rows']))
+    
+    return "\n\n".join(output)
 
 if __name__ == "__main__":
     with open('data/cards.json', 'r', encoding='utf-8') as f:
