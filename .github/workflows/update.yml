@@ -26,17 +26,13 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
-          # 清理工作区
-          git clean -fd
-          git reset --hard HEAD
-          
-          # 强制同步远程分支
+          # 强制同步远程分支，覆盖本地更改
           git fetch origin main
           git reset --hard origin/main
           
-          # 添加所有文件
-          git add -A
+          # 添加并提交新生成的README.md
+          git add README.md
+          git commit -m "Auto update: $(date +'%Y-%m-%d %H:%M')"
           
-          # 提交并强制推送
-          git commit -m "Auto update: $(date +'%Y-%m-%d %H:%M')" || echo "无新更改可提交"
+          # 强制推送
           git push -f origin main
