@@ -1,17 +1,22 @@
+
+
+根据数据分析和需求调整，以下是优化后的完整代码：
+
+```python
 import json
 import re
 from datetime import datetime
-from urllib.parse import quote
-
-OPERATOR_MAP = {
-    10000: "中国电信",
-    10010: "中国联通",
-    10086: "中国移动",
-    10099: "广电"
-}
 
 def generate_table(goods):
-    """生成带分类标签和样式化信息的Markdown表格"""
+    """生成带样式优化的Markdown表格"""
+    operator_map = {
+        10000: "中国电信",
+        10010: "中国联通",
+        10086: "中国移动",
+        10099: "广电"
+    }
+
+    # 初始化分类容器
     categories = {
         "中国电信": [],
         "中国联通": [],
@@ -20,59 +25,62 @@ def generate_table(goods):
     }
 
     for item in goods:
-        # 基础数据校验
+        # 数据有效性校验
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
-        # 处理标题乱码
-        title = json.loads(f'"{item["title"]}"')  # 正确解码Unicode字符
+        # 解码标题
+        title = json.loads(f'"{item["title"]}"')  # 解决Unicode转义问题
         
-        # 特殊标签处理
+        # 标签系统
         tags = []
         if item.get('is_top', 0) > 0:
             tags.append("🔝置顶")
         if item.get('is_main', 0) == 1:
             tags.append("⭐主推")
 
-        # 解析产品亮点（浅粉色背景）
+        # 处理产品亮点
         try:
             selling_points = json.loads(item['selling_point'].replace('""', '"'))
         except:
-            selling_points = re.findall(r'"([^"]+)"', item['selling_point'])  # 正则兜底解析
+            selling_points = re.findall(r'"([^"]+)"', item['selling_point'])
         
-        # 生成粉色标签块（#FFB6C1）
+        # 粉色标签样式
         highlight_tags = "".join(
             [f'<span style="background: #FFB6C1; padding: 2px 5px; border-radius: 4px; margin: 2px; display: inline-block;">{point}</span>' 
-             for point in selling_points if point.strip()]
+             for point in selling_points]
         )
 
-        # 组合标题和标签
-        full_title = f"{' '.join(tags)}<br>{title}<br>{highlight_tags}".strip()
+        # 生成办理链接（关键修复）
+        share_id = item['page_shop_id']  # 使用page_shop_id作为share_id
+        product_shop_id = item['product_shop_id']
+        
+        # 动态选择路径模板
+        template = "merchant/templet1.html"
+        if product_shop_id == 316354:  # 特殊处理海南联通卡
+            template = "gantanhaoluodi/index.html"
+            
+        link = f"https://www.91haoka.cn/webapp/{template}?share_id={share_id}&id={item['id']}&weixiaodian=true"
 
-        # 生成正确办理链接
-        link = f"https://www.91haoka.cn/webapp/merchant/templet1.html?share_id={item['product_shop_id']}&id={item['id']}&weixiaodian=true"
-
-        # 区域限制检测
+        # 区域限制解析
         region = "全国"
         if match := re.search(r'仅发([\u4e00-\u9fa5]{2,7})', title):
             region = match.group(1)
-        elif "全国" not in title:
-            region = "地区限制"
 
         # 运营商分类
-        operator = OPERATOR_MAP.get(item['operator'], "其他")
+        operator = operator_map.get(item['operator'], "其他")
         if operator not in categories:
             continue
 
         # 构建表格行
-        row = f"| {full_title} | {item['yuezu']}元 | {item['liuliang']}G | {item['dx_liuliang']}G | " \
+        row = f"| {' '.join(tags)}<br>{title}<br>{highlight_tags} | {item['yuezu']}元 | {item['liuliang']}G | {item['dx_liuliang']}G | " \
               f"{item['yuyin'] or '0.1元/分钟'} | {region} | [立即办理]({link}) |"
         
         categories[operator].append(row)
 
     # 构建分类表格
     tables = []
-    for operator in ['中国移动', '中国电信', '中国联通', '广电']:  # 固定排序
+    for operator in ['中国移动', '中国电信', '中国联通', '广电']:
         if rows := categories[operator]:
             header = f"## {'📱' if operator == '中国移动' else '📡' if operator == '中国电信' else '📶' if operator == '中国联通' else '📺'} {operator}套餐\n" \
                      "| 套餐信息 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n" \
@@ -82,7 +90,6 @@ def generate_table(goods):
     return "\n\n".join(tables)
 
 if __name__ == "__main__":
-    # 加载测试数据
     with open('data/cards.json', 'r', encoding='utf-8') as f:
         data = json.load(f)['data']['goods']
     
