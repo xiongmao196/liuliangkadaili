@@ -1,5 +1,4 @@
 import json
-import ast
 import re
 from datetime import datetime
 from urllib.parse import quote
@@ -11,18 +10,8 @@ OPERATOR_MAP = {
     10099: "广电"
 }
 
-COLOR_TAGS = {
-    "首月免费": "#FFD1DC",
-    "全国发货": "#87CEEB",
-    "大流量卡": "#FFA07A",
-    "长期套餐": "#98FB98",
-    "可选号": "#DDA0DD",
-    "流量结转": "#FFD700",
-    "默认": "#E0E0E0"  # 未匹配标签的默认颜色
-}
-
 def generate_table(goods):
-    """生成带分类标签和样式化信息的Markdown表格"""
+    """生成带样式优化的Markdown表格"""
     categories = {
         "中国电信": [],
         "中国联通": [],
@@ -35,48 +24,39 @@ def generate_table(goods):
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
-        # 解码标题
-        title = item['title'].encode('utf-8').decode('unicode_escape')
+        # 直接使用JSON解析后的标题（解决乱码问题）
+        title = item['title']  
         
-        # 添加特殊标签
+        # 特殊标签处理
         tags = []
         if item.get('is_top', 0) > 0:
-            tags.append("🔥置顶")
+            tags.append("🔝置顶")
         if item.get('is_main', 0) == 1:
             tags.append("⭐主推")
-        
-        # 处理产品亮点
+
+        # 解析产品亮点（强制浅粉色背景）
         try:
             selling_points = json.loads(item['selling_point'].replace('""', '"'))
         except:
-            try:
-                selling_points = ast.literal_eval(item['selling_point'])
-            except:
-                selling_points = []
-        
-        # 生成亮点标签
-        point_tags = []
-        for point in selling_points:
-            color = COLOR_TAGS["默认"]
-            for key in COLOR_TAGS:
-                if key in point:
-                    color = COLOR_TAGS[key]
-                    break
-            point_tags.append(f'<span style="background: {color}; padding: 2px 5px; border-radius: 3px; margin: 2px; display: inline-block;">{point}</span>')
-        
+            selling_points = re.findall(r'"([^"]+)"', item['selling_point'])  # 正则兜底解析
+
+        # 生成粉色标签块
+        highlight_tags = "".join(
+            [f'<span style="background: #FFB6C1; padding: 2px 5px; border-radius: 3px; margin: 2px;">{point}</span>' 
+             for point in selling_points]
+        )
+
         # 组合标题和标签
-        full_title = f"{' '.join(tags)}<br/>{title}<br/>{''.join(point_tags)}"
+        full_title = f"{' '.join(tags)}<br>{title}<br>{highlight_tags}"
 
         # 生成正确办理链接
-        shop_id = item.get('product_shop_id') or item.get('page_shop_id') or 563381
-        link = f"https://www.91haoka.cn/webapp/merchant/templet1.html?share_id={shop_id}&id={item['id']}&weixiaodian=true"
+        link = f"https://www.91haoka.cn/webapp/merchant/templet1.html?share_id={item['product_shop_id']}&id={item['id']}&weixiaodian=true"
 
         # 区域限制检测
         region = "全国"
-        if '仅发' in item['title']:
-            match = re.search(r'仅发([\u4e00-\u9fa5]+)', item['title'])
-            region = match.group(1) if match else "地区限制"
-        
+        if '仅发' in title:
+            region = re.search(r'仅发([\u4e00-\u9fa5]+)', title).group(1) or "地区限制"
+
         # 运营商分类
         operator = OPERATOR_MAP.get(item['operator'], "其他")
         if operator not in categories:
@@ -90,9 +70,9 @@ def generate_table(goods):
 
     # 构建分类表格
     tables = []
-    for operator, rows in categories.items():
-        if rows:
-            header = f"## {'📡' if operator == '中国电信' else '📶' if operator == '中国联通' else '📱' if operator == '中国移动' else '📺'} {operator}套餐\n" \
+    for operator in ['中国移动', '中国电信', '中国联通', '广电']:  # 固定排序
+        if rows := categories[operator]:
+            header = f"## {'📱' if operator == '中国移动' else '📡' if operator == '中国电信' else '📶' if operator == '中国联通' else '📺'} {operator}套餐\n" \
                      "| 套餐信息 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n" \
                      "|----------|------|----------|----------|------|----------|----------|"
             tables.append("\n".join([header] + rows))
@@ -100,14 +80,25 @@ def generate_table(goods):
     return "\n\n".join(tables)
 
 if __name__ == "__main__":
-    # 测试数据加载
-    with open('data/cards.json', 'r', encoding='utf-8') as f:
-        data = json.load(f)['data']['goods']
+    # 加载测试数据
+    test_data = """
+    # 这里粘贴用户提供的完整JSON数据
+    """
+    
+    data = json.loads(test_data)['data']['goods']
     
     md_content = f"""# 🚀 2025年最新流量卡套餐实时更新
 **最后更新时间**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 {generate_table(data)}
+
+## 📌 办理须知
+1. 粉色标签为产品核心亮点
+2. 置顶/主推标识为平台推荐套餐
+3. 实际资费以运营商为准
+"""
+    with open('README.md', 'w', encoding='utf-8') as f:
+        f.write(md_content)
 
 ## 📌 办理须知
 1. 标注"仅发XX"套餐需核对收货地址
