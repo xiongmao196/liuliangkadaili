@@ -87,8 +87,8 @@ if __name__ == "__main__":
     md_content = f"""# 🚀 2025年最新流量卡套餐实时更新
 **最后更新时间**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
 📌 2025年最新流量卡套餐合集：https://www.91haoka.cn/webapp/weixiaodian/index.html?shop_id=563381&fetch_code=Qm9SpxyHEe  
-<strong style="color:red;">⚠️ 失效链接都可以来这里找！📞 客服微信: XKKJ66（备注「流量卡」）</strong>
-
+<strong style="color:red;">⚠️ 失效链接都可以来这里找！📞 客服微信: XKKJ66（备注「办理流量卡」）</strong>
+📌 企业官网：https://www.haoka100.cn/
 {generate_table(data)}
 
 ## 📌 办理须知
