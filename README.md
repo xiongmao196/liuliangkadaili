@@ -1,7 +1,7 @@
 # 🚀 2025年最新流量卡套餐实时更新
-**最后更新时间**: 2025-04-08 12:55:43  
+**最后更新时间**: 2025-04-08 12:57:37  
 📌 2025年最新流量卡套餐合集：https://www.91haoka.cn/webapp/weixiaodian/index.html?shop_id=563381&fetch_code=Qm9SpxyHEe  
-<strong style="color:red;">⚠️ 失效链接都可以来这里找！</strong>
+<strong style="color:red;">⚠️ 失效链接都可以来这里找！📞 客服微信: XKKJ66（备注「流量卡」）</strong>
 
 ## 📱 中国移动套餐
 | 套餐信息 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |
