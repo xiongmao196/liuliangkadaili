@@ -11,7 +11,7 @@ OPERATOR_MAP = {
 }
 
 def generate_table(goods):
-    """生成带样式优化的Markdown表格"""
+    """生成带分类标签和样式化信息的Markdown表格"""
     categories = {
         "中国电信": [],
         "中国联通": [],
@@ -24,8 +24,8 @@ def generate_table(goods):
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
-        # 直接使用JSON解析后的标题（解决乱码问题）
-        title = item['title'].replace('\uff0c', '，')  # 替换全角逗号
+        # 处理标题乱码
+        title = json.loads(f'"{item["title"]}"')  # 正确解码Unicode字符
         
         # 特殊标签处理
         tags = []
@@ -34,12 +34,12 @@ def generate_table(goods):
         if item.get('is_main', 0) == 1:
             tags.append("⭐主推")
 
-        # 解析产品亮点（强制浅粉色背景）
+        # 解析产品亮点（浅粉色背景）
         try:
             selling_points = json.loads(item['selling_point'].replace('""', '"'))
         except:
             selling_points = re.findall(r'"([^"]+)"', item['selling_point'])  # 正则兜底解析
-
+        
         # 生成粉色标签块（#FFB6C1）
         highlight_tags = "".join(
             [f'<span style="background: #FFB6C1; padding: 2px 5px; border-radius: 4px; margin: 2px; display: inline-block;">{point}</span>' 
@@ -54,7 +54,7 @@ def generate_table(goods):
 
         # 区域限制检测
         region = "全国"
-        if match := re.search(r'仅发([\u4e00-\u9fa5]{2,4}?)省?[内]?', title):
+        if match := re.search(r'仅发([\u4e00-\u9fa5]{2,7})', title):
             region = match.group(1)
         elif "全国" not in title:
             region = "地区限制"
@@ -82,6 +82,7 @@ def generate_table(goods):
     return "\n\n".join(tables)
 
 if __name__ == "__main__":
+    # 加载测试数据
     with open('data/cards.json', 'r', encoding='utf-8') as f:
         data = json.load(f)['data']['goods']
     
@@ -97,25 +98,11 @@ if __name__ == "__main__":
 4. 标价均为首年月租价格（特殊说明除外）
 
 📞 客服微信: XKKJ66（备注「流量卡」）
-"""
-
-    with open('README.md', 'w', encoding='utf-8') as f:
-        f.write(md_content)
-## 📌 办理须知
-1. 标注"仅发XX"套餐需核对收货地址
-2. 0.1元/分钟为全国通话标准资费
-3. 色标说明：
-   <span style="background: #FFD1DC; padding: 2px 5px;">首月优惠</span>
-   <span style="background: #87CEEB; padding: 2px 5px;">全国套餐</span>
-   <span style="background: #FFA07A; padding: 2px 5px;">大流量</span>
-   <span style="background: #98FB98; padding: 2px 5px;">长期套餐</span>
-
-📞 客服微信: XKKJ66（备注「流量卡」）
 
 ---
 
 ### 🔍 流量卡SEO关键词  
-`2025流量卡推荐2` `全国通用流量套餐` `低月租大流量手机卡`  
+`2025流量卡推荐` `全国通用流量套餐` `低月租大流量手机卡`  
 `电信星卡办理` `联通长期套餐` `移动特惠卡` `广电5G套餐`  
 `学生专属流量卡` `老年人优惠套餐` `企业集团卡`  
 `省内流量卡` `全国发货电话卡` `免合约期套餐`  
@@ -128,5 +115,6 @@ if __name__ == "__main__":
 
 *覆盖100+搜索关键词组合，提升搜索引擎可见性*
 """
+
     with open('README.md', 'w', encoding='utf-8') as f:
         f.write(md_content)
