@@ -1,5 +1,6 @@
 import json
 import ast
+import re
 from datetime import datetime
 from urllib.parse import quote
 
@@ -10,93 +11,96 @@ OPERATOR_MAP = {
     10099: "广电"
 }
 
+COLOR_TAGS = {
+    "首月免费": "#FFD1DC",
+    "全国发货": "#87CEEB",
+    "大流量卡": "#FFA07A",
+    "长期套餐": "#98FB98",
+    "可选号": "#DDA0DD",
+    "流量结转": "#FFD700",
+    "默认": "#E0E0E0"  # 未匹配标签的默认颜色
+}
+
 def generate_table(goods):
-    """生成带运营商分类的Markdown表格，自动过滤空分类"""
+    """生成带分类标签和样式化信息的Markdown表格"""
     categories = {
-        "中国电信": {
-            "header": "## 📡 中国电信套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-            "rows": []
-        },
-        "中国联通": {
-            "header": "## 📶 中国联通套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-            "rows": []
-        },
-        "中国移动": {
-            "header": "## 📱 中国移动套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-            "rows": []
-        },
-        "广电": {
-            "header": "## 📺 广电套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-            "rows": []
-        }
+        "中国电信": [],
+        "中国联通": [],
+        "中国移动": [],
+        "广电": []
     }
 
     for item in goods:
-        # 过滤无效数据
+        # 基础数据校验
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
-        # 清洗标题（根据实际数据情况调整）
-        title = item['title'].strip().replace('\u200b', '')  # 示例：移除零宽空格
+        # 解码标题
+        title = item['title'].encode('utf-8').decode('unicode_escape')
         
-        # 获取运营商分类
+        # 添加特殊标签
+        tags = []
+        if item.get('is_top', 0) > 0:
+            tags.append("🔥置顶")
+        if item.get('is_main', 0) == 1:
+            tags.append("⭐主推")
+        
+        # 处理产品亮点
+        try:
+            selling_points = json.loads(item['selling_point'].replace('""', '"'))
+        except:
+            try:
+                selling_points = ast.literal_eval(item['selling_point'])
+            except:
+                selling_points = []
+        
+        # 生成亮点标签
+        point_tags = []
+        for point in selling_points:
+            color = COLOR_TAGS["默认"]
+            for key in COLOR_TAGS:
+                if key in point:
+                    color = COLOR_TAGS[key]
+                    break
+            point_tags.append(f'<span style="background: {color}; padding: 2px 5px; border-radius: 3px; margin: 2px; display: inline-block;">{point}</span>')
+        
+        # 组合标题和标签
+        full_title = f"{' '.join(tags)}<br/>{title}<br/>{''.join(point_tags)}"
+
+        # 生成正确办理链接
+        shop_id = item.get('product_shop_id') or item.get('page_shop_id') or 563381
+        link = f"https://www.91haoka.cn/webapp/merchant/templet1.html?share_id={shop_id}&id={item['id']}&weixiaodian=true"
+
+        # 区域限制检测
+        region = "全国"
+        if '仅发' in item['title']:
+            match = re.search(r'仅发([\u4e00-\u9fa5]+)', item['title'])
+            region = match.group(1) if match else "地区限制"
+        
+        # 运营商分类
         operator = OPERATOR_MAP.get(item['operator'], "其他")
         if operator not in categories:
             continue
 
-        # 生成办理链接
-        link = f"https://www.91haoka.cn/webapp/weixiaodian/index.html?shop_id=563381&fetch_code={quote(item['fetch_code'])}"
-        
-        # 区域限制解析（增强健壮性）
-        region = "全国"
-        selling_points = []
-        try:
-            # 尝试两种解析方式
-            try:
-                selling_points = json.loads(item['selling_point'].replace('""', '"'))
-            except json.JSONDecodeError:
-                selling_points = ast.literal_eval(item['selling_point'])
-        except:
-            pass
-        
-        # 使用正则表达式作为最后兜底方案
-        import re
-        region_match = re.search(r'仅发([\u4e00-\u9fa5]+)', item['selling_point'])
-        if region_match:
-            region = region_match.group(1)
-        else:
-            for point in selling_points:
-                if "仅发" in point:
-                    region = point.split("仅发")[-1].replace("）", "").strip()
-                    break
-
-        # 通话时长处理（增强类型容错）
-        try:
-            yuyin = int(item.get('yuyin', 0))
-        except (ValueError, TypeError):
-            yuyin = 0
-        call_time = "0.1元/分钟" if yuyin == 0 else f"{yuyin}分钟"
-        
-        # 定向流量显示优化
-        dx_liuliang = item.get('dx_liuliang', 0)
-        dx_display = f"{dx_liuliang}G" if dx_liuliang > 0 else "无"
-
         # 构建表格行
-        row = f"| {title} | {item['yuezu']}元 | {item['liuliang']}G | {dx_display} | " \
-              f"{call_time} | {region} | [立即办理]({link}) |"
+        row = f"| {full_title} | {item['yuezu']}元 | {item['liuliang']}G | {item['dx_liuliang']}G | " \
+              f"{item['yuyin'] or '0.1元/分钟'} | {region} | [立即办理]({link}) |"
         
-        categories[operator]['rows'].append(row)
+        categories[operator].append(row)
 
-    # 构建最终输出，过滤空分类
-    output = []
-    for category in ['中国移动', '中国电信', '中国联通', '广电']:  # 固定排序
-        data = categories[category]
-        if data['rows']:
-            output.append("\n".join([data['header']] + data['rows']))
+    # 构建分类表格
+    tables = []
+    for operator, rows in categories.items():
+        if rows:
+            header = f"## {'📡' if operator == '中国电信' else '📶' if operator == '中国联通' else '📱' if operator == '中国移动' else '📺'} {operator}套餐\n" \
+                     "| 套餐信息 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n" \
+                     "|----------|------|----------|----------|------|----------|----------|"
+            tables.append("\n".join([header] + rows))
     
-    return "\n\n".join(output)
+    return "\n\n".join(tables)
 
 if __name__ == "__main__":
+    # 测试数据加载
     with open('data/cards.json', 'r', encoding='utf-8') as f:
         data = json.load(f)['data']['goods']
     
@@ -105,10 +109,14 @@ if __name__ == "__main__":
 
 {generate_table(data)}
 
-## 📌 重要说明
-1. 标注"仅发XX"需核对收货地址
-2. 0.1元/分钟为全国通话资费
-3. 定向流量包含抖音/微信等30+APP
+## 📌 办理须知
+1. 标注"仅发XX"套餐需核对收货地址
+2. 0.1元/分钟为全国通话标准资费
+3. 色标说明：
+   <span style="background: #FFD1DC; padding: 2px 5px;">首月优惠</span>
+   <span style="background: #87CEEB; padding: 2px 5px;">全国套餐</span>
+   <span style="background: #FFA07A; padding: 2px 5px;">大流量</span>
+   <span style="background: #98FB98; padding: 2px 5px;">长期套餐</span>
 
 📞 客服微信: XKKJ66（备注「流量卡」）
 
