@@ -25,7 +25,7 @@ def generate_table(goods):
             continue
 
         # 直接使用JSON解析后的标题（解决乱码问题）
-        title = item['title']  
+        title = item['title'].replace('\uff0c', '，')  # 替换全角逗号
         
         # 特殊标签处理
         tags = []
@@ -40,22 +40,24 @@ def generate_table(goods):
         except:
             selling_points = re.findall(r'"([^"]+)"', item['selling_point'])  # 正则兜底解析
 
-        # 生成粉色标签块
+        # 生成粉色标签块（#FFB6C1）
         highlight_tags = "".join(
-            [f'<span style="background: #FFB6C1; padding: 2px 5px; border-radius: 3px; margin: 2px;">{point}</span>' 
-             for point in selling_points]
+            [f'<span style="background: #FFB6C1; padding: 2px 5px; border-radius: 4px; margin: 2px; display: inline-block;">{point}</span>' 
+             for point in selling_points if point.strip()]
         )
 
         # 组合标题和标签
-        full_title = f"{' '.join(tags)}<br>{title}<br>{highlight_tags}"
+        full_title = f"{' '.join(tags)}<br>{title}<br>{highlight_tags}".strip()
 
         # 生成正确办理链接
         link = f"https://www.91haoka.cn/webapp/merchant/templet1.html?share_id={item['product_shop_id']}&id={item['id']}&weixiaodian=true"
 
         # 区域限制检测
         region = "全国"
-        if '仅发' in title:
-            region = re.search(r'仅发([\u4e00-\u9fa5]+)', title).group(1) or "地区限制"
+        if match := re.search(r'仅发([\u4e00-\u9fa5]{2,4}?)省?[内]?', title):
+            region = match.group(1)
+        elif "全国" not in title:
+            region = "地区限制"
 
         # 运营商分类
         operator = OPERATOR_MAP.get(item['operator'], "其他")
@@ -80,12 +82,8 @@ def generate_table(goods):
     return "\n\n".join(tables)
 
 if __name__ == "__main__":
-    # 加载测试数据
-    test_data = """
-    # 这里粘贴用户提供的完整JSON数据
-    """
-    
-    data = json.loads(test_data)['data']['goods']
+    with open('data/cards.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)['data']['goods']
     
     md_content = f"""# 🚀 2025年最新流量卡套餐实时更新
 **最后更新时间**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -96,10 +94,13 @@ if __name__ == "__main__":
 1. 粉色标签为产品核心亮点
 2. 置顶/主推标识为平台推荐套餐
 3. 实际资费以运营商为准
+4. 标价均为首年月租价格（特殊说明除外）
+
+📞 客服微信: XKKJ66（备注「流量卡」）
 """
+
     with open('README.md', 'w', encoding='utf-8') as f:
         f.write(md_content)
-
 ## 📌 办理须知
 1. 标注"仅发XX"套餐需核对收货地址
 2. 0.1元/分钟为全国通话标准资费
