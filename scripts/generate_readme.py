@@ -11,7 +11,6 @@ def generate_table(goods):
         10099: "广电"
     }
 
-    # 初始化分类容器
     categories = {
         "中国电信": [],
         "中国联通": [],
@@ -24,40 +23,37 @@ def generate_table(goods):
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
-        # 解码标题
-        title = json.loads(f'"{item["title"]}"')  # 解决Unicode转义问题
+        # 解码标题并处理特殊字符
+        title = json.loads(f'"{item["title"]}"').replace('\uff0c', '，')
         
-        # 标签系统
+        # 生成标签系统
         tags = []
         if item.get('is_top', 0) > 0:
             tags.append("🔝置顶")
         if item.get('is_main', 0) == 1:
             tags.append("⭐主推")
 
-        # 处理产品亮点
+        # 解析产品亮点
         try:
             selling_points = json.loads(item['selling_point'].replace('""', '"'))
         except:
             selling_points = re.findall(r'"([^"]+)"', item['selling_point'])
         
-        # 粉色标签样式
+        # 生成粉色标签块
         highlight_tags = "".join(
-            [f'<span style="background: #FFB6C1; padding: 2px 5px; border-radius: 4px; margin: 2px; display: inline-block;">{point}</span>' 
-             for point in selling_points]
+            [f'<span style="background: #FFB6C1; padding: 2px 5px; border-radius: 4px; margin: 2px;">{point}</span>' 
+             for point in selling_points if point.strip()]
         )
 
-        # 生成办理链接（关键修复）
-        share_id = item['page_shop_id']  # 使用page_shop_id作为share_id
+        # 动态生成链接（关键修复）
         product_shop_id = item['product_shop_id']
-        
-        # 动态选择路径模板
-        template = "merchant/templet1.html"
-        if product_shop_id == 316354:  # 特殊处理海南联通卡
+        template = "merchant/templet1.html" 
+        if product_shop_id == 316354:  # 特殊处理海南卡
             template = "gantanhaoluodi/index.html"
             
-        link = f"https://www.91haoka.cn/webapp/{template}?share_id={share_id}&id={item['id']}&weixiaodian=true"
+        link = f"https://www.91haoka.cn/webapp/{template}?share_id={item['page_shop_id']}&id={item['id']}&weixiaodian=true"
 
-        # 区域限制解析
+        # 区域限制解析增强
         region = "全国"
         if match := re.search(r'仅发([\u4e00-\u9fa5]{2,7})', title):
             region = match.group(1)
@@ -89,13 +85,16 @@ if __name__ == "__main__":
         data = json.load(f)['data']['goods']
     
     md_content = f"""# 🚀 2025年最新流量卡套餐实时更新
-**最后更新时间**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+**最后更新时间**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
+📌 2025年最新流量卡套餐合集：https://www.91haoka.cn/webapp/weixiaodian/index.html?shop_id=563381&fetch_code=Qm9SpxyHEe  
+<strong style="color:red;">⚠️ 失效链接都可以来这里找！</strong>
 
 {generate_table(data)}
 
 ## 📌 办理须知
 1. 粉色标签为产品核心亮点
 2. 置顶/主推标识为平台推荐套餐
+3. 实际资费以运营商为准
 
 📞 客服微信: XKKJ66（备注「流量卡」）
 
