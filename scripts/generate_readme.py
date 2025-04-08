@@ -11,7 +11,7 @@ OPERATOR_MAP = {
 }
 
 def generate_table(goods):
-    """生成带运营商分类的Markdown表格（修复乱码和JSON解析问题）"""
+    """生成带运营商分类的Markdown表格"""
     categories = {
         "中国电信": "## 📡 中国电信套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
         "中国联通": "## 📶 中国联通套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
@@ -20,6 +20,7 @@ def generate_table(goods):
     }
 
     for item in goods:
+        # 过滤无效数据（月租或流量为0）
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
@@ -42,9 +43,7 @@ def generate_table(goods):
                 selling_points = ast.literal_eval(item['selling_point']) if item['selling_point'] else []
             except:
                 selling_points = []
-                print(f"强制修复失败: {item['selling_point']}")
-
-        # 提取区域限制
+        
         for point in selling_points:
             if "仅发" in point:
                 region = point.split("仅发")[-1].replace("）", "").strip()
@@ -81,7 +80,7 @@ if __name__ == "__main__":
 ---
 
 ### 🔍 流量卡SEO关键词  
-`2025流量卡推荐1` `全国通用流量套餐` `低月租大流量手机卡`  
+`2025流量卡推荐` `全国通用流量套餐` `低月租大流量手机卡`  
 `电信星卡办理` `联通长期套餐` `移动特惠卡` `广电5G套餐`  
 `学生专属流量卡` `老年人优惠套餐` `企业集团卡`  
 `省内流量卡` `全国发货电话卡` `免合约期套餐`  
