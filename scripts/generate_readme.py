@@ -5,8 +5,8 @@ from urllib.parse import quote
 
 OPERATOR_MAP = {
     10000: "中国电信",
-    10010: "联通",
-    10086: "移动",
+    10010: "中国联通",
+    10086: "中国移动",
     10099: "广电"
 }
 
@@ -14,8 +14,8 @@ def generate_table(goods):
     """生成带运营商分类的Markdown表格（修复乱码和JSON解析问题）"""
     categories = {
         "中国电信": "## 📡 中国电信套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-        "联通": "## 📶 联通套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
-        "移动": "## 📱 移动套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
+        "中国联通": "## 📶 中国联通套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
+        "中国移动": "## 📱 中国移动套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|",
         "广电": "## 📺 广电套餐\n| 套餐名称 | 月租 | 通用流量 | 定向流量 | 通话 | 区域限制 | 立即办理 |\n|---------|------|----------|----------|------|----------|----------|"
     }
 
@@ -24,7 +24,7 @@ def generate_table(goods):
         if item.get('yuezu', 0) <= 0 or item.get('liuliang', 0) <= 0:
             continue
 
-        # 修复标题乱码问题
+        # 修复标题乱码
         title = item['title'].encode('utf-8').decode('unicode_escape').replace("\\", "")
         operator = OPERATOR_MAP.get(item['operator'], "其他")
         
@@ -33,28 +33,23 @@ def generate_table(goods):
         
         # 区域限制解析（增强容错）
         region = "全国"
-        selling_point = item['selling_point']
         try:
-            # 处理非法引号和未闭合括号
-            selling_point = selling_point.strip().replace('""', '"').replace("\\", "")
+            selling_point = item['selling_point'].replace('""', '"').strip('"')
             if selling_point.startswith('["') and not selling_point.endswith('"]'):
                 selling_point += '"]'
             selling_points = json.loads(selling_point)
         except json.JSONDecodeError:
             try:
-                # 使用安全模式解析非标准JSON
-                selling_points = ast.literal_eval(selling_point) if selling_point else []
+                selling_points = ast.literal_eval(item['selling_point']) if item['selling_point'] else []
             except:
                 selling_points = []
                 print(f"强制修复失败: {item['selling_point']}")
 
-        # 提取区域限制关键词
+        # 提取区域限制
         for point in selling_points:
             if "仅发" in point:
                 region = point.split("仅发")[-1].replace("）", "").strip()
                 break
-            elif "发" in point and "省" in point:
-                region = point.split("发")[-1].split("省")[0] + "省"
 
         # 通话时长处理
         call_time = "0.1元/分钟" if item.get('yuyin', 0) == 0 else f"{item['yuyin']}分钟"
@@ -83,6 +78,9 @@ if __name__ == "__main__":
 3. 定向流量包含抖音/微信等30+APP
 
 📞 客服微信: XKKJ66（备注「流量卡」）
+"""
+    with open('README.md', 'w', encoding='utf-8') as f:
+        f.write(md_content)
 
 ---
 
