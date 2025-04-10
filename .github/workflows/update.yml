@@ -5,43 +5,26 @@ on:
     paths:
       - "data/cards.json"
   workflow_dispatch:
+  schedule:
+    - cron: "0 */12 * * *"
+      timezone: Asia/Shanghai
 
 jobs:
   generate-readme:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-
-      - name: 生成README
+      - name: Generate README
         run: |
           pip install urllib3
           python scripts/generate_readme.py
-
-      - name: 提交更新
+      - name: Commit changes
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-      
-          # 强制同步远程分支，覆盖本地所有修改
-          git fetch origin main
-          git reset --hard origin/main
-      
-          # 清理未跟踪文件和目录
-          git clean -fd -x
-      
-          # 重新生成README（必须在同步后执行）
-          python scripts/generate_readme.py
-      
-          # 提交变更
           git add README.md
           git commit -m "Auto update: $(date +'%Y-%m-%d %H:%M')"
-      
-          # 使用GITHUB_TOKEN设置认证URL
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/xiongmao196/liuliangkadaili.git
-      
-          # 强制推送覆盖
-          git push -f origin main
+          git push origin main
